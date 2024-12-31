@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>siliconflow批量查询</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        #downloadBtn {
+            margin: 20px 0;
+        }
+        #tokenInput {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1><a href="https://cloud.siliconflow.cn/i/c6O0OHbZ">siliconflow sk</a></h1>
+<textarea id="tokenInput" placeholder="每行输入一个 key 不需要逗号"></textarea>
+<button id="fetchBtn">获取用户信息</button>
+<button id="downloadBtn">下载 CSV</button>
+<button id="fastDrawBtn" onclick="window.location.href='https://6b.globalai.us.kg?utm_source=checkSCkey'">极速 绘画</button>
+<table id="userTable">
+    <thead>
+    <tr>
+        <th>Token</th>
+        <th>ID</th>
+        <th>姓名</th>
+        <th>头像</th>
+        <th>邮箱</th>
+        <th>是否管理员</th>
+        <th>余额</th>
+        <th>状态</th>
+        <th>介绍</th>
+        <th>角色</th>
+        <th>充值余额</th>
+        <th>总余额</th>
+    </tr>
+    </thead>
+    <tbody id="userTableBody">
+    </tbody>
+</table>
+
+<script>
+    // 默认的 token 列表
+    const defaultTokens = `
+sk-klawqyoodcrpleslhlotszwsqwvqsuugwxgozemrxiaeadmm
+sk-ifxeqdbaewhizdgnpmodkhptrbetbahearzuqjxciubnagyl
+sk-kcyokjurpjylduahbjpogytkepoxqizepjyupgebplqxnapl
+`.trim();
+
+    // 设置默认 token 到输入框
+    document.getElementById('tokenInput').value = defaultTokens;
+
+    async function fetchUserInfo(token) {
+        const response = await fetch('https://api.siliconflow.cn/v1/user/info', {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    function displayUserInfo(token, data) {
+        const tbody = document.getElementById('userTableBody');
+        const row = document.createElement('tr');
+        row.innerHTML = `
+                <td>${token}</td>
+                <td>${data.id}</td>
+                <td>${data.name}</td>
+                <td><img src="${data.image}" alt="头像" width="50"></td>
+                <td>${data.email}</td>
+                <td>${data.isAdmin}</td>
+                <td>${data.balance}</td>
+                <td>${data.status}</td>
+                <td>${data.introduction}</td>
+                <td>${data.role}</td>
+                <td>${data.chargeBalance}</td>
+                <td>${data.totalBalance}</td>
+            `;
+        tbody.appendChild(row);
+    }
+
+    function sortTableByTotalBalance() {
+        const tbody = document.getElementById('userTableBody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+        rows.sort((a, b) => {
+            const totalBalanceA = parseFloat(a.cells[11].innerText);
+            const totalBalanceB = parseFloat(b.cells[11].innerText);
+            return totalBalanceB - totalBalanceA; // 倒序排列
+        });
+
+        rows.forEach(row => tbody.appendChild(row)); // 重新插入排序后的行
+    }
+
+    function downloadCSV() {
+        const rows = Array.from(document.querySelectorAll('table tr'));
+        const csvContent = rows.map(row => {
+            const cols = Array.from(row.querySelectorAll('td, th')).map(col => col.innerText);
+            return cols.join(',');
+        }).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'user_info.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    async function fetchUserInfos() {
+        const tokenInput = document.getElementById('tokenInput').value;
+        const tokens = tokenInput.split('\n').map(token => token.trim()).filter(token => token);
+
+        // 如果没有输入 token，则使用默认 token
+        if (tokens.length === 0) {
+            tokens.push(...defaultTokens.split('\n').map(token => token.trim()).filter(token => token));
+        }
+
+        for (const token of tokens) {
+            try {
+                const userInfoResponse = await fetchUserInfo(token);
+
+                if (userInfoResponse.code === 20000) {
+                    displayUserInfo(token, userInfoResponse.data);
+                } else {
+                    console.error(`获取 token ${token} 的用户信息失败:`, userInfoResponse.message);
+                }
+            } catch (error) {
+                console.error(`调用 token ${token} 时发生错误:`, error);
+            }
+        }
+
+        sortTableByTotalBalance(); // 排序
+    }
+
+    document.getElementById('fetchBtn').addEventListener('click', fetchUserInfos);
+    document.getElementById('downloadBtn').addEventListener('click', downloadCSV);
+</script>
+</body>
+</html>
